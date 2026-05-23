@@ -147,4 +147,132 @@ if uploaded_file is not None:
                             
                             ppt_data['Confirmation'][display_name] = summary
                             
-                            # Layout split for numbers
+                            # Layout split for numbers table
+                            chart_col, table_col = st.columns([2, 1])
+                            with chart_col:
+                                st.plotly_chart(create_bar_chart(summary, display_name, 'Unique Orders', f"Orders by {display_name}"), use_container_width=True)
+                            with table_col:
+                                st.markdown(f"**{display_name} Summary Table:**")
+                                st.dataframe(summary, hide_index=True, use_container_width=True)
+                                
+                            st.divider()
+                else:
+                    st.error("Column 'BOOK ID' not found in Confirmation sheet.")
+
+            # ----------------------------------------
+            # TAB 3: RETURN SHEET ANALYSIS
+            # ----------------------------------------
+            with tab3:
+                st.header("Return Sheet Dashboard")
+                df_ret = pd.read_excel(xls, sheet_name='Return')
+                df_ret.columns = df_ret.columns.str.strip()
+                
+                date_col = 'Date' if 'Date' in df_ret.columns else ([c for c in df_ret.columns if 'date' in c.lower()] + [None])[0]
+                
+                if 'BOOK ID' in df_ret.columns and date_col:
+                    df_ret['Parsed Date'] = pd.to_datetime(df_ret[date_col], errors='coerce')
+                    df_ret['Month'] = df_ret['Parsed Date'].dt.strftime('%Y-%m ( %B )')
+                    
+                    summary_ret = df_ret.groupby('Month')['BOOK ID'].nunique().reset_index()
+                    summary_ret.columns = ['Month', 'Unique Returns']
+                    summary_ret = summary_ret.sort_values(by='Month')
+                    
+                    ppt_data['Return'] = summary_ret
+                    
+                    chart_col, table_col = st.columns([2, 1])
+                    with chart_col:
+                        st.plotly_chart(create_bar_chart(summary_ret, 'Month', 'Unique Returns', "Returned Orders Trend by Month"), use_container_width=True)
+                    with table_col:
+                        st.markdown("**Monthly Returns Summary Table:**")
+                        st.dataframe(summary_ret, hide_index=True, use_container_width=True)
+                else:
+                    st.error("Make sure 'Return' sheet has both 'BOOK ID' and a valid 'Date' column.")
+
+            # ----------------------------------------
+            # POWERPOINT EXPORT LOGIC
+            # ----------------------------------------
+            st.divider()
+            st.subheader("Export Results")
+            
+            if st.button("Generate & Download PowerPoint Report 📊", use_container_width=True):
+                prs = Presentation()
+                DARK_BLUE = RGBColor(0, 51, 102)
+                YELLOW = RGBColor(255, 204, 0)
+                
+                # Title Slide
+                slide = prs.slides.add_slide(prs.slide_layouts[6])
+                tx_box = slide.shapes.add_textbox(Inches(1), Inches(2), Inches(8), Inches(2))
+                tf = tx_box.text_frame
+                p = tf.add_paragraph()
+                p.text = "EXTRA HD DATA ANALYZER"
+                p.font.size = Pt(40)
+                p.font.bold = True
+                p.font.color.rgb = DARK_BLUE
+                
+                p2 = tf.add_paragraph()
+                p2.text = "Automated Logistics & Performance Summary Report"
+                p2.font.size = Pt(18)
+                p2.font.color.rgb = YELLOW
+                
+                for sheet_name, categories in ppt_data.items():
+                    if sheet_name in ['HD', 'Confirmation']:
+                        for cat_name, df_summary in categories.items():
+                            slide = prs.slides.add_slide(prs.slide_layouts[6])
+                            tx = slide.shapes.add_textbox(Inches(0.5), Inches(0.5), Inches(9), Inches(0.8))
+                            tx.text_frame.text = f"{sheet_name} Sheet - {cat_name} Analysis"
+                            tx.text_frame.paragraphs[0].font.size = Pt(24)
+                            tx.text_frame.paragraphs[0].font.bold = True
+                            tx.text_frame.paragraphs[0].font.color.rgb = DARK_BLUE
+                            
+                            df_top = df_summary.head(10)
+                            rows = len(df_top) + 1
+                            table_shape = slide.shapes.add_table(rows, 2, Inches(1), Inches(1.5), Inches(8), Inches(4))
+                            table = table_shape.table
+                            
+                            table.cell(0, 0).text = str(df_top.columns[0])
+                            table.cell(0, 1).text = str(df_top.columns[1])
+                            table.cell(0, 0).fill.solid()
+                            table.cell(0, 0).fill.fore_color.rgb = DARK_BLUE
+                            table.cell(0, 1).fill.solid()
+                            table.cell(0, 1).fill.fore_color.rgb = DARK_BLUE
+                            
+                            for r_idx, row in df_top.reset_index(drop=True).iterrows():
+                                table.cell(r_idx + 1, 0).text = str(row.iloc[0])
+                                table.cell(r_idx + 1, 1).text = str(row.iloc[1])
+                                
+                    elif sheet_name == 'Return':
+                        slide = prs.slides.add_slide(prs.slide_layouts[6])
+                        tx = slide.shapes.add_textbox(Inches(0.5), Inches(0.5), Inches(9), Inches(0.8))
+                        tx.text_frame.text = "Return Sheet - Monthly Summary"
+                        tx.text_frame.paragraphs[0].font.size = Pt(24)
+                        tx.text_frame.paragraphs[0].font.bold = True
+                        tx.text_frame.paragraphs[0].font.color.rgb = DARK_BLUE
+                        
+                        rows = len(categories) + 1
+                        table_shape = slide.shapes.add_table(rows, 2, Inches(1), Inches(1.5), Inches(8), Inches(4))
+                        table = table_shape.table
+                        table.cell(0, 0).text = "Month"
+                        table.cell(0, 1).text = "Unique Returns"
+                        table.cell(0, 0).fill.solid()
+                        table.cell(0, 0).fill.fore_color.rgb = DARK_BLUE
+                        table.cell(0, 1).fill.solid()
+                        table.cell(0, 1).fill.fore_color.rgb = DARK_BLUE
+                        
+                        for r_idx, row in categories.reset_index(drop=True).iterrows():
+                            table.cell(r_idx + 1, 0).text = str(row.iloc[0])
+                            table.cell(r_idx + 1, 1).text = str(row.iloc[1])
+
+                ppt_buffer = io.BytesIO()
+                prs.save(ppt_buffer)
+                ppt_buffer.seek(0)
+                
+                st.download_button(
+                    label="📥 Click here to save the PowerPoint file",
+                    data=ppt_buffer,
+                    file_name="EXTRA_HD_Data_Analysis.pptx",
+                    mime="application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                )
+                st.success("PowerPoint layout compiled successfully!")
+                
+    except Exception as e:
+        st.error(f"An error occurred while parsing the file: {e}")
