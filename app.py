@@ -7,7 +7,7 @@ from pptx.dml.color import RGBColor
 import io
 
 # 1. Page Configuration & Theme Styling
-st.set_page_config(page_title="EXtRA Data Analyzer", layout="wide")
+st.set_page_config(page_title="EXTRA HD DATA ANALYZER", layout="wide")
 
 # Custom CSS for Blue/Yellow theme and the requested watermark background
 st.markdown("""
@@ -22,24 +22,19 @@ st.markdown("""
     /* Global Styles */
     h1, h2, h3 { color: #003366 !important; font-family: 'Arial', sans-serif; }
     
-    /* Metric Card Styling */
-    .metric-box {
-        background-color: #f0f4f8;
-        border-left: 5px solid #FFCC00;
-        padding: 15px;
+    /* Global Table Styling */
+    .stDataFrame {
+        border: 1px solid #003366;
         border-radius: 5px;
-        box-shadow: 2px 2px 5px rgba(0,0,0,0.05);
-        margin-bottom: 10px;
     }
-    .metric-title { font-size: 14px; color: #555; font-weight: bold; }
-    .metric-value { font-size: 24px; color: #003366; font-weight: bold; }
     </style>
     """, unsafe_allow_html=True)
 
-# App Header Component
+# App Header Component - New Header Style with centered Big Yellow X below title
 st.markdown('<div style="text-align: center; margin-bottom: 30px;">'
-            '<h1>E<span style="font-size: 0.7em; vertical-align: super;">X</span>tRA Data Analyzer</h1>'
-            '<p style="color: #666;">Upload your logistics Excel sheet to get automated insights instantly</p>'
+            '<h1 style="font-size: 3em; letter-spacing: 1px;">EXTRA HD DATA ANALYZER</h1>'
+            '<div style="font-size: 5.5em; font-weight: 900; color: #FFCC00; margin-top: -10px; margin-bottom: 5px; line-height: 1em;">X</div>'
+            '<p style="color: #666; font-size: 1.1em;">Upload your logistics Excel sheet to get automated insights instantly</p>'
             '</div>', unsafe_allow_html=True)
 
 # 2. File Upload Zone
@@ -47,7 +42,6 @@ uploaded_file = st.file_uploader("Upload your Excel File (.xlsx)", type=["xlsx"]
 
 # Helper function to generate standardized charts with text values on top
 def create_bar_chart(df, x_col, y_col, title):
-    # Added text_auto=True to display numbers on top of the bars
     fig = px.bar(df, x=x_col, y=y_col, title=title, text_auto=True,
                  color_discrete_sequence=['#003366']) # Blue Bars
     fig.update_layout(
@@ -102,8 +96,6 @@ if uploaded_file is not None:
                         'Technician', 'Driver', 'Truck No', 'Month'
                     ]
                     
-                    cols = st.columns(4)
-                    col_idx = 0
                     ppt_data['HD'] = {}
                     
                     for col in columns_to_analyze:
@@ -117,25 +109,15 @@ if uploaded_file is not None:
                             
                             ppt_data['HD'][display_name] = summary
                             
-                            # Display Metrics
-                            with cols[col_idx % 4]:
-                                st.markdown(f"""
-                                <div class="metric-box">
-                                    <div class="metric-title">{display_name}</div>
-                                    <div class="metric-value">{len(summary)} Unique Items</div>
-                                </div>
-                                """, unsafe_allow_html=True)
-                            
                             # Layout split: Chart on left, Data Table with numbers on right
                             chart_col, table_col = st.columns([2, 1])
                             with chart_col:
                                 st.plotly_chart(create_bar_chart(summary, display_name, 'Unique Orders', f"Orders by {display_name}"), use_container_width=True)
                             with table_col:
-                                st.markdown(f"**{display_name} Numbers Data List:**")
+                                st.markdown(f"**{display_name} Summary Table:**")
                                 st.dataframe(summary, hide_index=True, use_container_width=True)
                                 
                             st.divider()
-                            col_idx += 1
                 else:
                     st.error("Column 'BOOK ID' not found in HD sheet.")
 
@@ -153,8 +135,6 @@ if uploaded_file is not None:
                         df_conf['Month'] = df_conf['Date'].dt.strftime('%Y-%m ( %B )')
                         
                     conf_columns = ['Technician', 'Driver', 'Truck No', 'Month']
-                    cols_conf = st.columns(4)
-                    col_idx = 0
                     ppt_data['Confirmation'] = {}
                     
                     for col in conf_columns:
@@ -167,148 +147,10 @@ if uploaded_file is not None:
                             
                             ppt_data['Confirmation'][display_name] = summary
                             
-                            with cols_conf[col_idx % 4]:
-                                st.markdown(f"""
-                                <div class="metric-box">
-                                    <div class="metric-title">{display_name}</div>
-                                    <div class="metric-value">{len(summary)} Unique Items</div>
-                                </div>
-                                """, unsafe_allow_html=True)
-                                
                             # Layout split for numbers table
                             chart_col, table_col = st.columns([2, 1])
                             with chart_col:
                                 st.plotly_chart(create_bar_chart(summary, display_name, 'Unique Orders', f"Orders by {display_name}"), use_container_width=True)
                             with table_col:
-                                st.markdown(f"**{display_name} Numbers Data List:**")
-                                st.dataframe(summary, hide_index=True, use_container_width=True)
-                                
-                            st.divider()
-                            col_idx += 1
-                else:
-                    st.error("Column 'BOOK ID' not found in Confirmation sheet.")
-
-            # ----------------------------------------
-            # TAB 3: RETURN SHEET ANALYSIS
-            # ----------------------------------------
-            with tab3:
-                st.header("Return Sheet Dashboard")
-                df_ret = pd.read_excel(xls, sheet_name='Return')
-                df_ret.columns = df_ret.columns.str.strip()
-                
-                date_col = 'Date' if 'Date' in df_ret.columns else ([c for c in df_ret.columns if 'date' in c.lower()] + [None])[0]
-                
-                if 'BOOK ID' in df_ret.columns and date_col:
-                    df_ret['Parsed Date'] = pd.to_datetime(df_ret[date_col], errors='coerce')
-                    df_ret['Month'] = df_ret['Parsed Date'].dt.strftime('%Y-%m ( %B )')
-                    
-                    summary_ret = df_ret.groupby('Month')['BOOK ID'].nunique().reset_index()
-                    summary_ret.columns = ['Month', 'Unique Returns']
-                    summary_ret = summary_ret.sort_values(by='Month')
-                    
-                    ppt_data['Return'] = summary_ret
-                    
-                    st.markdown(f"""
-                    <div class="metric-box" style="max-width: 300px;">
-                        <div class="metric-title">Total Unique Returned Orders</div>
-                        <div class="metric-value">{summary_ret['Unique Returns'].sum()}</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-                    
-                    chart_col, table_col = st.columns([2, 1])
-                    with chart_col:
-                        st.plotly_chart(create_bar_chart(summary_ret, 'Month', 'Unique Returns', "Returned Orders Trend by Month"), use_container_width=True)
-                    with table_col:
-                        st.markdown("**Monthly Returns Numbers:**")
-                        st.dataframe(summary_ret, hide_index=True, use_container_width=True)
-                else:
-                    st.error("Make sure 'Return' sheet has both 'BOOK ID' and a valid 'Date' column.")
-
-            # ----------------------------------------
-            # POWERPOINT EXPORT LOGIC
-            # ----------------------------------------
-            st.divider()
-            st.subheader("Export Results")
-            
-            if st.button("Generate & Download PowerPoint Report 📊", use_container_width=True):
-                prs = Presentation()
-                DARK_BLUE = RGBColor(0, 51, 102)
-                YELLOW = RGBColor(255, 204, 0)
-                
-                # Title Slide
-                slide = prs.slides.add_slide(prs.slide_layouts[6])
-                tx_box = slide.shapes.add_textbox(Inches(1), Inches(2), Inches(8), Inches(2))
-                tf = tx_box.text_frame
-                p = tf.add_paragraph()
-                p.text = "EXtRA Data Analysis Report"
-                p.font.size = Pt(44)
-                p.font.bold = True
-                p.font.color.rgb = DARK_BLUE
-                
-                p2 = tf.add_paragraph()
-                p2.text = "Automated Logistics & Performance Summary"
-                p2.font.size = Pt(20)
-                p2.font.color.rgb = YELLOW
-                
-                for sheet_name, categories in ppt_data.items():
-                    if sheet_name in ['HD', 'Confirmation']:
-                        for cat_name, df_summary in categories.items():
-                            slide = prs.slides.add_slide(prs.slide_layouts[6])
-                            tx = slide.shapes.add_textbox(Inches(0.5), Inches(0.5), Inches(9), Inches(0.8))
-                            tx.text_frame.text = f"{sheet_name} Sheet - {cat_name} Analysis"
-                            tx.text_frame.paragraphs[0].font.size = Pt(24)
-                            tx.text_frame.paragraphs[0].font.bold = True
-                            tx.text_frame.paragraphs[0].font.color.rgb = DARK_BLUE
-                            
-                            df_top = df_summary.head(10)
-                            rows = len(df_top) + 1
-                            table_shape = slide.shapes.add_table(rows, 2, Inches(1), Inches(1.5), Inches(8), Inches(4))
-                            table = table_shape.table
-                            
-                            table.cell(0, 0).text = str(df_top.columns[0])
-                            table.cell(0, 1).text = str(df_top.columns[1])
-                            table.cell(0, 0).fill.solid()
-                            table.cell(0, 0).fill.fore_color.rgb = DARK_BLUE
-                            table.cell(0, 1).fill.solid()
-                            table.cell(0, 1).fill.fore_color.rgb = DARK_BLUE
-                            
-                            for r_idx, row in df_top.reset_index(drop=True).iterrows():
-                                table.cell(r_idx + 1, 0).text = str(row.iloc[0])
-                                table.cell(r_idx + 1, 1).text = str(row.iloc[1])
-                                
-                    elif sheet_name == 'Return':
-                        slide = prs.slides.add_slide(prs.slide_layouts[6])
-                        tx = slide.shapes.add_textbox(Inches(0.5), Inches(0.5), Inches(9), Inches(0.8))
-                        tx.text_frame.text = "Return Sheet - Monthly Summary"
-                        tx.text_frame.paragraphs[0].font.size = Pt(24)
-                        tx.text_frame.paragraphs[0].font.bold = True
-                        tx.text_frame.paragraphs[0].font.color.rgb = DARK_BLUE
-                        
-                        rows = len(categories) + 1
-                        table_shape = slide.shapes.add_table(rows, 2, Inches(1), Inches(1.5), Inches(8), Inches(4))
-                        table = table_shape.table
-                        table.cell(0, 0).text = "Month"
-                        table.cell(0, 1).text = "Unique Returns"
-                        table.cell(0, 0).fill.solid()
-                        table.cell(0, 0).fill.fore_color.rgb = DARK_BLUE
-                        table.cell(0, 1).fill.solid()
-                        table.cell(0, 1).fill.fore_color.rgb = DARK_BLUE
-                        
-                        for r_idx, row in categories.reset_index(drop=True).iterrows():
-                            table.cell(r_idx + 1, 0).text = str(row.iloc[0])
-                            table.cell(r_idx + 1, 1).text = str(row.iloc[1])
-
-                ppt_buffer = io.BytesIO()
-                prs.save(ppt_buffer)
-                ppt_buffer.seek(0)
-                
-                st.download_button(
-                    label="📥 Click here to save the PowerPoint file",
-                    data=ppt_buffer,
-                    file_name="EXtRA_Data_Analysis.pptx",
-                    mime="application/vnd.openxmlformats-officedocument.presentationml.presentation"
-                )
-                st.success("PowerPoint layout compiled successfully!")
-                
-    except Exception as e:
-        st.error(f"An error occurred while parsing the file: {e}")
+                                st.markdown(f"**{display_name} Summary Table:**")
+                                st.
