@@ -30,7 +30,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# App Header Component - New Header Style with centered Big Yellow X below title
+# App Header Component - Title with centered Big Yellow X below
 st.markdown('<div style="text-align: center; margin-bottom: 30px;">'
             '<h1 style="font-size: 3em; letter-spacing: 1px;">EXTRA HD DATA ANALYZER</h1>'
             '<div style="font-size: 5.5em; font-weight: 900; color: #FFCC00; margin-top: -10px; margin-bottom: 5px; line-height: 1em;">X</div>'
@@ -147,10 +147,4 @@ if uploaded_file is not None:
                             
                             ppt_data['Confirmation'][display_name] = summary
                             
-                            # Layout split for numbers table
-                            chart_col, table_col = st.columns([2, 1])
-                            with chart_col:
-                                st.plotly_chart(create_bar_chart(summary, display_name, 'Unique Orders', f"Orders by {display_name}"), use_container_width=True)
-                            with table_col:
-                                st.markdown(f"**{display_name} Summary Table:**")
-                                st.
+                            # Layout split for numbers
