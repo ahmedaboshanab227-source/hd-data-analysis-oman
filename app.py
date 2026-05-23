@@ -45,9 +45,10 @@ st.markdown('<div style="text-align: center; margin-bottom: 30px;">'
 # 2. File Upload Zone
 uploaded_file = st.file_uploader("Upload your Excel File (.xlsx)", type=["xlsx"])
 
-# Helper function to generate standardized charts
+# Helper function to generate standardized charts with text values on top
 def create_bar_chart(df, x_col, y_col, title):
-    fig = px.bar(df, x=x_col, y=y_col, title=title,
+    # Added text_auto=True to display numbers on top of the bars
+    fig = px.bar(df, x=x_col, y=y_col, title=title, text_auto=True,
                  color_discrete_sequence=['#003366']) # Blue Bars
     fig.update_layout(
         plot_bgcolor='rgba(0,0,0,0)',
@@ -56,7 +57,11 @@ def create_bar_chart(df, x_col, y_col, title):
         yaxis_title="Unique Orders Count",
         font=dict(color="#003366")
     )
-    fig.update_traces(marker_line_color='#FFCC00', marker_line_width=1.5) # Yellow borders
+    fig.update_traces(
+        marker_line_color='#FFCC00', 
+        marker_line_width=1.5,
+        textposition='outside' # Puts numbers clearly on top of bars
+    )
     return fig
 
 # 3. Processing Core
@@ -85,13 +90,9 @@ if uploaded_file is not None:
             with tab1:
                 st.header("HD Sheet Dashboard")
                 df_hd = pd.read_excel(xls, sheet_name='HD')
-                
-                # Dynamic column cleaners
                 df_hd.columns = df_hd.columns.str.strip()
                 
-                # Check for BOOK ID
                 if 'BOOK ID' in df_hd.columns:
-                    # Parse Dates for the 8th requirement
                     if 'Actual Delivery Date' in df_hd.columns:
                         df_hd['Actual Delivery Date'] = pd.to_datetime(df_hd['Actual Delivery Date'], errors='coerce')
                         df_hd['Month'] = df_hd['Actual Delivery Date'].dt.strftime('%Y-%m ( %B )')
@@ -103,31 +104,37 @@ if uploaded_file is not None:
                     
                     cols = st.columns(4)
                     col_idx = 0
-                    
                     ppt_data['HD'] = {}
                     
                     for col in columns_to_analyze:
                         if col in df_hd.columns or (col == 'Month' and 'Month' in df_hd.columns):
                             display_name = "Actual Delivery Date (By Month)" if col == 'Month' else col
                             
-                            # Critical requirement: Eliminate duplicates on BOOK ID (nunique)
+                            # Eliminate duplicates on BOOK ID (nunique)
                             summary = df_hd.groupby(col)['BOOK ID'].nunique().reset_index()
                             summary.columns = [display_name, 'Unique Orders']
                             summary = summary.sort_values(by='Unique Orders', ascending=False)
                             
-                            # Save for PowerPoint
                             ppt_data['HD'][display_name] = summary
                             
-                            # Display Metrics and Charts
+                            # Display Metrics
                             with cols[col_idx % 4]:
                                 st.markdown(f"""
                                 <div class="metric-box">
                                     <div class="metric-title">{display_name}</div>
-                                    <div class="metric-value">{len(summary)} Unique Categories</div>
+                                    <div class="metric-value">{len(summary)} Unique Items</div>
                                 </div>
                                 """, unsafe_allow_html=True)
                             
-                            st.plotly_chart(create_bar_chart(summary, display_name, 'Unique Orders', f"Orders by {display_name}"), use_container_width=True)
+                            # Layout split: Chart on left, Data Table with numbers on right
+                            chart_col, table_col = st.columns([2, 1])
+                            with chart_col:
+                                st.plotly_chart(create_bar_chart(summary, display_name, 'Unique Orders', f"Orders by {display_name}"), use_container_width=True)
+                            with table_col:
+                                st.markdown(f"**{display_name} Numbers Data List:**")
+                                st.dataframe(summary, hide_index=True, use_container_width=True)
+                                
+                            st.divider()
                             col_idx += 1
                 else:
                     st.error("Column 'BOOK ID' not found in HD sheet.")
@@ -148,14 +155,12 @@ if uploaded_file is not None:
                     conf_columns = ['Technician', 'Driver', 'Truck No', 'Month']
                     cols_conf = st.columns(4)
                     col_idx = 0
-                    
                     ppt_data['Confirmation'] = {}
                     
                     for col in conf_columns:
                         if col in df_conf.columns or (col == 'Month' and 'Month' in df_conf.columns):
                             display_name = "Date (By Month)" if col == 'Month' else col
                             
-                            # Eliminate duplicates on BOOK ID
                             summary = df_conf.groupby(col)['BOOK ID'].nunique().reset_index()
                             summary.columns = [display_name, 'Unique Orders']
                             summary = summary.sort_values(by='Unique Orders', ascending=False)
@@ -166,11 +171,19 @@ if uploaded_file is not None:
                                 st.markdown(f"""
                                 <div class="metric-box">
                                     <div class="metric-title">{display_name}</div>
-                                    <div class="metric-value">{len(summary)} Unique Categories</div>
+                                    <div class="metric-value">{len(summary)} Unique Items</div>
                                 </div>
                                 """, unsafe_allow_html=True)
                                 
-                            st.plotly_chart(create_bar_chart(summary, display_name, 'Unique Orders', f"Orders by {display_name}"), use_container_width=True)
+                            # Layout split for numbers table
+                            chart_col, table_col = st.columns([2, 1])
+                            with chart_col:
+                                st.plotly_chart(create_bar_chart(summary, display_name, 'Unique Orders', f"Orders by {display_name}"), use_container_width=True)
+                            with table_col:
+                                st.markdown(f"**{display_name} Numbers Data List:**")
+                                st.dataframe(summary, hide_index=True, use_container_width=True)
+                                
+                            st.divider()
                             col_idx += 1
                 else:
                     st.error("Column 'BOOK ID' not found in Confirmation sheet.")
@@ -183,14 +196,12 @@ if uploaded_file is not None:
                 df_ret = pd.read_excel(xls, sheet_name='Return')
                 df_ret.columns = df_ret.columns.str.strip()
                 
-                # Check for either Date or Return Date to define months
                 date_col = 'Date' if 'Date' in df_ret.columns else ([c for c in df_ret.columns if 'date' in c.lower()] + [None])[0]
                 
                 if 'BOOK ID' in df_ret.columns and date_col:
                     df_ret['Parsed Date'] = pd.to_datetime(df_ret[date_col], errors='coerce')
                     df_ret['Month'] = df_ret['Parsed Date'].dt.strftime('%Y-%m ( %B )')
                     
-                    # Eliminate duplicates and group by month
                     summary_ret = df_ret.groupby('Month')['BOOK ID'].nunique().reset_index()
                     summary_ret.columns = ['Month', 'Unique Returns']
                     summary_ret = summary_ret.sort_values(by='Month')
@@ -204,7 +215,12 @@ if uploaded_file is not None:
                     </div>
                     """, unsafe_allow_html=True)
                     
-                    st.plotly_chart(create_bar_chart(summary_ret, 'Month', 'Unique Returns', "Returned Orders Trend by Month"), use_container_width=True)
+                    chart_col, table_col = st.columns([2, 1])
+                    with chart_col:
+                        st.plotly_chart(create_bar_chart(summary_ret, 'Month', 'Unique Returns', "Returned Orders Trend by Month"), use_container_width=True)
+                    with table_col:
+                        st.markdown("**Monthly Returns Numbers:**")
+                        st.dataframe(summary_ret, hide_index=True, use_container_width=True)
                 else:
                     st.error("Make sure 'Return' sheet has both 'BOOK ID' and a valid 'Date' column.")
 
@@ -216,16 +232,11 @@ if uploaded_file is not None:
             
             if st.button("Generate & Download PowerPoint Report 📊", use_container_width=True):
                 prs = Presentation()
-                
-                # Color Palette definitions for PPT
                 DARK_BLUE = RGBColor(0, 51, 102)
                 YELLOW = RGBColor(255, 204, 0)
                 
-                # Slide 1: Title Slide
-                slide_layout = prs.slide_layouts[6] # Blank slide layout
-                slide = prs.slides.add_slide(slide_layout)
-                
-                # Title Text
+                # Title Slide
+                slide = prs.slides.add_slide(prs.slide_layouts[6])
                 tx_box = slide.shapes.add_textbox(Inches(1), Inches(2), Inches(8), Inches(2))
                 tf = tx_box.text_frame
                 p = tf.add_paragraph()
@@ -239,26 +250,21 @@ if uploaded_file is not None:
                 p2.font.size = Pt(20)
                 p2.font.color.rgb = YELLOW
                 
-                # Dynamic generation of slides based on tables
                 for sheet_name, categories in ppt_data.items():
                     if sheet_name in ['HD', 'Confirmation']:
                         for cat_name, df_summary in categories.items():
                             slide = prs.slides.add_slide(prs.slide_layouts[6])
-                            
-                            # Add Title to Slide
                             tx = slide.shapes.add_textbox(Inches(0.5), Inches(0.5), Inches(9), Inches(0.8))
                             tx.text_frame.text = f"{sheet_name} Sheet - {cat_name} Analysis"
                             tx.text_frame.paragraphs[0].font.size = Pt(24)
                             tx.text_frame.paragraphs[0].font.bold = True
                             tx.text_frame.paragraphs[0].font.color.rgb = DARK_BLUE
                             
-                            # Add data table (Top 10 items for visibility)
                             df_top = df_summary.head(10)
                             rows = len(df_top) + 1
                             table_shape = slide.shapes.add_table(rows, 2, Inches(1), Inches(1.5), Inches(8), Inches(4))
                             table = table_shape.table
                             
-                            # Header
                             table.cell(0, 0).text = str(df_top.columns[0])
                             table.cell(0, 1).text = str(df_top.columns[1])
                             table.cell(0, 0).fill.solid()
@@ -266,8 +272,7 @@ if uploaded_file is not None:
                             table.cell(0, 1).fill.solid()
                             table.cell(0, 1).fill.fore_color.rgb = DARK_BLUE
                             
-                            # Populate rows
-                            for r_idx, row in df_top.iterrows():
+                            for r_idx, row in df_top.reset_index(drop=True).iterrows():
                                 table.cell(r_idx + 1, 0).text = str(row.iloc[0])
                                 table.cell(r_idx + 1, 1).text = str(row.iloc[1])
                                 
@@ -289,16 +294,14 @@ if uploaded_file is not None:
                         table.cell(0, 1).fill.solid()
                         table.cell(0, 1).fill.fore_color.rgb = DARK_BLUE
                         
-                        for r_idx, row in categories.iterrows():
+                        for r_idx, row in categories.reset_index(drop=True).iterrows():
                             table.cell(r_idx + 1, 0).text = str(row.iloc[0])
                             table.cell(r_idx + 1, 1).text = str(row.iloc[1])
 
-                # Save Presentation to Memory buffer
                 ppt_buffer = io.BytesIO()
                 prs.save(ppt_buffer)
                 ppt_buffer.seek(0)
                 
-                # Provide download button
                 st.download_button(
                     label="📥 Click here to save the PowerPoint file",
                     data=ppt_buffer,
