@@ -266,4 +266,52 @@ if uploaded_file is not None:
                             df_top = df_summary.head(10)
                             rows = len(df_top) + 1
                             table_shape = slide.shapes.add_table(rows, 2, Inches(1), Inches(1.5), Inches(8), Inches(4))
-                            table = table_shape
+                            table = table_shape.table
+                            
+                            table.cell(0, 0).text = str(df_top.columns[0])
+                            table.cell(0, 1).text = str(df_top.columns[1])
+                            table.cell(0, 0).fill.solid()
+                            table.cell(0, 0).fill.fore_color.rgb = DARK_BLUE
+                            table.cell(0, 1).fill.solid()
+                            table.cell(0, 1).fill.fore_color.rgb = DARK_BLUE
+                            
+                            for r_idx, row in df_top.reset_index(drop=True).iterrows():
+                                table.cell(r_idx + 1, 0).text = str(row.iloc[0])
+                                table.cell(r_idx + 1, 1).text = str(row.iloc[1])
+                                
+                    elif sheet_name == 'Return':
+                        slide = prs.slides.add_slide(prs.slide_layouts[6])
+                        tx = slide.shapes.add_textbox(Inches(0.5), Inches(0.5), Inches(9), Inches(0.8))
+                        tx.text_frame.text = "Return Sheet - Monthly Summary"
+                        tx.text_frame.paragraphs[0].font.size = Pt(24)
+                        tx.text_frame.paragraphs[0].font.bold = True
+                        tx.text_frame.paragraphs[0].font.color.rgb = DARK_BLUE
+                        
+                        rows = len(categories) + 1
+                        table_shape = slide.shapes.add_table(rows, 2, Inches(1), Inches(1.5), Inches(8), Inches(4))
+                        table = table_shape.table
+                        table.cell(0, 0).text = "Month"
+                        table.cell(0, 1).text = "Unique Returns"
+                        table.cell(0, 0).fill.solid()
+                        table.cell(0, 0).fill.fore_color.rgb = DARK_BLUE
+                        table.cell(0, 1).fill.solid()
+                        table.cell(0, 1).fill.fore_color.rgb = DARK_BLUE
+                        
+                        for r_idx, row in categories.reset_index(drop=True).iterrows():
+                            table.cell(r_idx + 1, 0).text = str(row.iloc[0])
+                            table.cell(r_idx + 1, 1).text = str(row.iloc[1])
+
+                ppt_buffer = io.BytesIO()
+                prs.save(ppt_buffer)
+                ppt_buffer.seek(0)
+                
+                st.download_button(
+                    label="📥 Click here to save the PowerPoint file",
+                    data=ppt_buffer,
+                    file_name="eXtra_HD_Data_Analysis.pptx",
+                    mime="application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                )
+                st.success("PowerPoint layout compiled successfully!")
+                
+    except Exception as e:
+        st.error(f"An error occurred while parsing the file: {e}")
